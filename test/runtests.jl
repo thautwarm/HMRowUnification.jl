@@ -73,4 +73,10 @@ using Test
     println(rec2)
     @test repr(Record(RowMono)) == "{}"
 
+    tv5 = st.new_tvar()
+    arrow_t = Arrow(int_t, Tup((int_t, tv5)))
+    tv6 = st.new_tvar()
+    @test st.unify(Arrow(tv6, Tup((tv5, tv6))), arrow_t)
+    @test st.prune(tv5) == st.prune(tv6) == int_t
+    println(st.prune(arrow_t))
 end

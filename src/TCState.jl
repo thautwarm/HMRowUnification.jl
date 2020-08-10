@@ -124,7 +124,7 @@ function mk_tcstate(tctx::Vector{HMT})
                 unify(f1, f2) && unify(a1, a2)
         
             (Tup(xs1), Tup(xs2)) =>
-                all(zip(xs1)) do (lhs, rhs)
+                all(zip(xs1, xs2)) do (lhs, rhs)
                     unify(lhs, rhs)
                 end
         

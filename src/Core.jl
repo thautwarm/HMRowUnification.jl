@@ -79,11 +79,12 @@ Base.show(io::IO, hmt::HMT) =
         return
 
     @case Fresh(n)
-        print(io, "^", n)
+        print(io, n)
         return
 
     @case App(f, a)
         Base.show(io, f)
+        print(io, " ")
         with_parens(io, need_parens(a)) do
             Base.show(io, a)
         end
@@ -92,6 +93,7 @@ Base.show(io::IO, hmt::HMT) =
         with_parens(io, need_parens(a)) do
             Base.show(io, a)
         end
+        print(io, "->")
         Base.show(io, r)
         return
     @case Tup(xs)
@@ -101,7 +103,7 @@ Base.show(io::IO, hmt::HMT) =
         return 
     @case Forall(ns, t)
         print(io, "forall ")
-        print(io, join(repr.(ns), " "), ".")
+        print(io, join(string.(ns), " "), ".")
         Base.show(io, t)
         return
     @case Record(rec)
