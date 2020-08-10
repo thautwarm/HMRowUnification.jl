@@ -89,8 +89,9 @@ function mk_tcstate(tctx::Vector{HMT})
             (Nom(a), Nom(b)) => a::Symbol === b::Symbol
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
-                    subst1 = TypeScope([a => new_tvar() for a in ns1]...)
-                    subst2 = TypeScope([a => Var(Genvar(a)) for a in ns2]...)
+                    pt = Pair{Symbol, HMT}
+                    subst1 = ImDict(pt[a => new_tvar() for a in ns1]...)
+                    subst2 = ImDict(pt[a => Var(Genvar(a)) for a in ns2]...)
 
                     unify(fresh(subst1, p1), fresh(subst2, p2)) &&
                     all(subst1) do kv

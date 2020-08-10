@@ -58,4 +58,13 @@ using Test
     #         end
     # end
 
+    
+    t1 = Forall((:a, :b), App(Fresh(:b), Fresh(:a)))
+    t2 = Forall((:b, :a), App(Fresh(:b), Fresh(:a)))
+
+    @test st.unify(t1, t2)
+
+    t3 = Forall((:b, :a), App(Fresh(:a), Fresh(:b)))
+
+    @test st.unify(t1, t3)
 end
