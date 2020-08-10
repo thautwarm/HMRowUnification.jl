@@ -67,4 +67,10 @@ using Test
     t3 = Forall((:b, :a), App(Fresh(:a), Fresh(:b)))
 
     @test st.unify(t1, t3)
+
+    println(t3)
+    println(Genvar(:a))
+    println(rec2)
+    @test repr(Record(RowMono)) == "{}"
+
 end
