@@ -118,6 +118,14 @@ Base.show(io::IO, hmt::HMT) =
 
 TypeScope = ImDict{Symbol,HMT}
 
+function mk_type_scope(xs::AbstractVector{Pair{K, V}}) where {K, V}
+    ret = ImDict{K, V}()
+    for x in xs
+        ret = ImDict(ret, x)
+    end
+    ret
+end
+
 function previsit(f::Function, ctx′, root)
     function visit_t(ctx′, root)
         ctx, root = f(ctx′, root)

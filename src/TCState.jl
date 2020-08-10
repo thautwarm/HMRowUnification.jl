@@ -23,7 +23,7 @@ function mk_tcstate(tctx::Vector{HMT})
             Fresh(s) =>
         (freshmap, get(freshmap, s, a))
             Forall(ns, _) =>
-        (TypeScope((n => t for (n, t) in freshmap if !(n in ns))...), a)
+        (mk_type_scope(Pair{Symbol, HMT}[n => t for (n, t) in freshmap if !(n in ns)]), a)
             _ => (freshmap, a)
         end
     end
@@ -90,8 +90,8 @@ function mk_tcstate(tctx::Vector{HMT})
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
-                    subst1 = ImDict(pt[a => new_tvar() for a in ns1]...)
-                    subst2 = ImDict(pt[a => Var(Genvar(a)) for a in ns2]...)
+                    subst1 = mk_type_scope(pt[a => new_tvar() for a in ns1])
+                    subst2 = mk_type_scope(pt[a => Var(Genvar(a)) for a in ns2])
 
                     unify(fresh(subst1, p1), fresh(subst2, p2)) &&
                     all(subst1) do kv
