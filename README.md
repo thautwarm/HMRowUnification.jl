@@ -5,7 +5,9 @@
 [![Build Status](https://travis-ci.com/thautwarm/HMRowUnification.jl.svg?branch=master)](https://travis-ci.com/thautwarm/HMRowUnification.jl)
 [![Coverage](https://codecov.io/gh/thautwarm/HMRowUnification.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/thautwarm/HMRowUnification.jl)
 
-![fig.png](fig.png)
+<p align="center">
+<img width="250px" src="https://raw.githubusercontent.com/thautwarm/HMRowUnification.jl/master/fig.png"/>
+</p>
 
 # Usage
 
