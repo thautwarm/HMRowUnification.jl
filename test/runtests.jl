@@ -85,5 +85,6 @@ using Test
     t4 = Forall((:b, :a), App(Fresh(:a), Fresh(:a)))
     @test !(st.unify(t1, t4))
 
-    @assert isempty(ftv(t4))
+    @test isempty(ftv(t4))
+    @test st.unify(st.new_tvar(), Fresh(:a))
 end
