@@ -79,4 +79,7 @@ using Test
     @test st.unify(Arrow(tv6, Tup((tv5, tv6))), arrow_t)
     @test st.prune(tv5) == st.prune(tv6) == int_t
     println(st.prune(arrow_t))
+    
+    t4 = Forall((:b, :a), App(Fresh(:a), Fresh(:a)))
+    @test !(st.unify(t1, t4))
 end

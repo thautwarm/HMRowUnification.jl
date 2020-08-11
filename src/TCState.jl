@@ -87,19 +87,25 @@ function mk_tcstate(tctx::Vector{HMT})
     function unify(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
             (Nom(a), Nom(b)) => a::Symbol === b::Symbol
-            (Forall(ns1, p1), Forall(ns2, p2)) =>
+            (Forall{N1}(ns1, p1) where N1, Forall{N2}(ns2, p2) where N2) =>
+                N1 === N2 &&
                 (begin
                     pt = Pair{Symbol, HMT}
                     subst1 = mk_type_scope(pt[a => new_tvar() for a in ns1])
                     subst2 = mk_type_scope(pt[a => Var(Genvar(a)) for a in ns2])
-
                     unify(fresh(subst1, p1), fresh(subst2, p2)) &&
-                    all(subst1) do kv
-                        @match prune(kv.second) begin
-                            Var(Genvar(_)) => true
-                            _ => false
-                        end
-                    end
+                    (let check_unique = Set{Symbol}()
+                        all(subst1) do kv
+                            @switch prune(kv.second) begin
+                            @case Var(Genvar(s))
+                                push!(check_unique, s)                    
+                                return true
+                            @case _
+                                return false
+                            end
+                        end &&
+                        length(check_unique) == N1
+                    end)
                 end)
             (Var(a), Var(b)) && if a == b end => true
             (Var(_) && a, Var(Refvar(_)) && b) =>
