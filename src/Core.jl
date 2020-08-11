@@ -200,3 +200,18 @@ end
 struct RowFieldDuplicate <: Exception
     field::Symbol
 end
+
+
+function ftv(h::HMT)
+    typevars = Set{UInt}()
+    previsit(nothing, h) do ::Nothing, root::HMT
+        @switch root begin
+        @case Var(Refvar(i))
+            push!(typevars, i)
+            return nothing, root
+        @case _
+            return nothing, root
+        end
+    end
+    typevars
+end

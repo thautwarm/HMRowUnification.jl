@@ -42,6 +42,8 @@ using Test
     RowPoly(tv4)
 )
 
+    @test Set([st.int_of_tvar(tv4).value]) == ftv(Record(rec2))
+
     @test st.unify(Record(rec1), Record(rec2))
     println(st.prune(tv3), "  ", st.prune(tv4))
     # @test @match st.prune(tv3), st.prune(tv4) begin
@@ -82,4 +84,6 @@ using Test
     
     t4 = Forall((:b, :a), App(Fresh(:a), Fresh(:a)))
     @test !(st.unify(t1, t4))
+
+    @assert isempty(ftv(t4))
 end
