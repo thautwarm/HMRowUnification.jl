@@ -196,7 +196,6 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
                 tctx[i] = b
                 true
             end
-            (a, Var(Refvar(_)) && b) => unify(b, a)
             (Var(Genvar(_)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
 
