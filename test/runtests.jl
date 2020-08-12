@@ -98,4 +98,7 @@ using Test
             Arrow(Arrow(int_t, int_t), int_t)
     tv = st.new_tvar()
     @test Tup((int_t, int_t)) ⪯ Forall((:a, ), Tup((Fresh(:a), Fresh(:a))))
+    @test st.unify(Fresh(:a), Fresh(:a))
+    @test Fresh(:a) ⪯ Fresh(:a)
+
 end

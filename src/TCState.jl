@@ -89,7 +89,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
     
     function type_less(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
-            (Nom(a), Nom(b)) => a::Symbol === b::Symbol
+            (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
@@ -119,8 +119,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
             (Var(Genvar(_, _)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
 
-            (_, Fresh(s)) || (Fresh(s), _) =>
-                throw(UnboundTypeVar(s))
+            (_, Fresh(s)) || (Fresh(s), _) => false
         
             # A: (forall a. a -> a) -> [int]
             # B: (int -> int) -> [int]
@@ -169,7 +168,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
     
     function unify(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
-            (Nom(a), Nom(b)) => a::Symbol === b::Symbol
+            (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
             (Forall{N1}(ns1, p1) where N1, Forall{N2}(ns2, p2) where N2) =>
                 N1 === N2 &&
                 (begin
@@ -204,8 +203,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
             (Var(Genvar(_)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
 
-            (_, Fresh(s)) || (Fresh(s), _) =>
-                throw(UnboundTypeVar(s))
+            (_, Fresh(s)) || (Fresh(s), _) => false
         
             (Arrow(a1, r1), Arrow(a2, r2)) =>
                 unify(a1, a2) && unify(r1, r2)
