@@ -252,8 +252,22 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
         end)
     end
 
+    function instantiate(hmt::HMT)
+        @match hmt begin
+            Forall(ns, t) => begin
+                pt = Pair{Symbol, HMT}
+                genl = genvar_count[]
+                subst = mk_type_scope(pt[a => new_tvar() for a in ns])
+                fresh(subst, t)
+            end
+            _ => hmt
+        end
+    end
+
     (unify = unify,
         type_less = type_less,
+        tctx = tctx,
+        instantiate = instantiate,
         genvar_count = genvar_count,
         new_tvar = new_tvar,
         tvar_of_int = tvar_of_int,
@@ -284,3 +298,4 @@ end
    rhs = previsit(subst_tvar_visit, subst, rhs)
    small_tc.type_less(lhs, rhs)
 end
+

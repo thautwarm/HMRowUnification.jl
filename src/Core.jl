@@ -215,3 +215,24 @@ function ftv(h::HMT)
     end
     typevars
 end
+
+function unbound(root::HMT)
+    collected = Set{Symbol}()
+    visitor(shadow::Set{Symbol}, root::HMT) =
+        @match root begin
+            Fresh(s) =>
+                if s in shadow
+                    shadow, root
+                else
+                    push!(collected, s)
+                    shadow, root
+                end
+            Forall(ns, p) =>
+                let shadow = union(shadow, Tuple(ns))
+                    shadow, root
+                end
+            _ => (shadow, root)
+        end
+    previsit(visitor, Set{Symbol}(), root)
+    collected
+end

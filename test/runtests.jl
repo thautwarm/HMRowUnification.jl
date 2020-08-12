@@ -100,5 +100,8 @@ using Test
     @test Tup((int_t, int_t)) ⪯ Forall((:a, ), Tup((Fresh(:a), Fresh(:a))))
     @test st.unify(Fresh(:a), Fresh(:a))
     @test Fresh(:a) ⪯ Fresh(:a)
+    println(st.instantiate(t4))
+    @test isempty(unbound(t4))
+    @test collect(unbound(Tup((int_t,  Fresh(:a))))) == [:a]
 
 end
