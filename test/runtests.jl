@@ -103,5 +103,7 @@ using Test
     println(st.instantiate(t4))
     @test isempty(unbound(t4))
     @test collect(unbound(Tup((int_t,  Fresh(:a))))) == [:a]
+    l = st.new_tvar()
+    println(st.generalise(Dict(l.var.i => :a), l) == Forall((:a, ), Fresh(:a)))
 
 end

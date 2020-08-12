@@ -264,10 +264,28 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
         end
     end
 
+    function generalise(genmap::Dict{UInt, Symbol}, hmt::HMT)
+        function visitor(@nospecialize(_), hmt::HMT)
+            @match hmt begin
+                Var(Refvar(i)) => 
+                    let x = get(genmap, i, nothing)
+                        x === nothing && return hmt
+                        nothing, Fresh(x)
+                    end
+                _ => (nothing, hmt)
+            end
+        end
+        
+        Forall(Tuple(values(genmap)), previsit(visitor, genmap, hmt))
+    end
+
+
+
     (unify = unify,
         type_less = type_less,
         tctx = tctx,
         instantiate = instantiate,
+        generalise = generalise,
         genvar_count = genvar_count,
         new_tvar = new_tvar,
         tvar_of_int = tvar_of_int,
