@@ -71,7 +71,7 @@ using Test
     @test st.unify(t1, t3)
 
     println(t3)
-    println(Genvar(:a))
+    println(Genvar(0, :a))
     println(rec2)
     @test repr(Record(RowMono)) == "{}"
 
@@ -87,4 +87,15 @@ using Test
 
     @test isempty(ftv(t4))
     @test st.unify(st.new_tvar(), Fresh(:a))
+
+    @test int_t ⪯ Forall((:a, ), Fresh(:a))
+    @test int_t ⪯ int_t
+    @test Arrow(int_t, int_t) ⪯ Forall((:a, ), Arrow(Fresh(:a), Fresh(:a)))
+    @test Arrow(
+            Forall((:a, ), 
+                Arrow(Fresh(:a), Fresh(:a))),
+            int_t) ⪯ 
+            Arrow(Arrow(int_t, int_t), int_t)
+    tv = st.new_tvar()
+    @test Tup((int_t, int_t)) ⪯ Forall((:a, ), Tup((Fresh(:a), Fresh(:a))))
 end

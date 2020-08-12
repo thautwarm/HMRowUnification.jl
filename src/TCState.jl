@@ -16,8 +16,10 @@ function extract_row(rowt::RowT)
     extract_row_(TypeScope(), rowt)
 end
 
-
-function mk_tcstate(tctx::Vector{HMT})
+function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=nothing)
+    if genvar_count === nothing
+        genvar_count = Ref{UInt}()
+    end
     function fresh_visit(freshmap::TypeScope, a::HMT)
         @match a begin
             Fresh(s) =>
@@ -50,7 +52,7 @@ function mk_tcstate(tctx::Vector{HMT})
 
     function occur_in(i::Refvar, ty::HMT)
         @switch ty begin
-            @case Var(Genvar(_))
+            @case Var(Genvar(_, _))
             return false
             @case Var(i′) && if i′ === i end
             return false
@@ -84,6 +86,87 @@ function mk_tcstate(tctx::Vector{HMT})
         previsit(vfunc, nothing, x)
     end
 
+    
+    function type_less(lhs::HMT, rhs::HMT)
+        (@match prune(lhs), prune(rhs) begin
+            (Nom(a), Nom(b)) => a::Symbol === b::Symbol
+            (Forall(ns1, p1), Forall(ns2, p2)) =>
+                (begin
+                    pt = Pair{Symbol, HMT}
+                    genlevel = genvar_count[]
+                    genvar_count[] = genlevel + 1
+                    subst1 = mk_type_scope(pt[a => Var(Genvar(genlevel, a)) for a in ns1])
+                    subst2 = mk_type_scope(pt[a => new_tvar() for a in ns2])
+                    
+                    type_less(fresh(subst1, p1), fresh(subst2, p2))
+                end)
+            (_, Forall(ns2, p2)) =>
+                (begin
+                    pt = Pair{Symbol, HMT}
+                    subst = mk_type_scope(pt[a => new_tvar() for a in ns2])
+                    type_less(lhs, fresh(subst, p2))
+                end)
+            (Var(a), Var(b)) && if a == b end => true
+            (Var(_) && a, Var(Refvar(_)) && b) =>
+                unify(b, a)
+            (Var(Refvar(i) && ai), b) =>
+            if occur_in(ai, b)
+                throw(IllFormedType("a = a -> b"))
+            else
+                tctx[i] = b
+                true
+            end
+            (Var(Genvar(_, _)), _) => false
+            (a, (Var(_) && b)) => unify(b, a)
+
+            (_, Fresh(s)) || (Fresh(s), _) =>
+                throw(UnboundTypeVar(s))
+        
+            # A: (forall a. a -> a) -> [int]
+            # B: (int -> int) -> [int]
+            # A : B
+            (Arrow(a1, r1), Arrow(a2, r2)) =>
+                type_less(a2, a1) && type_less(r1, r2)
+            
+            # A: (forall a. a) int
+            # B: list a
+            # A : B
+            (App(f1, a1), App(f2, a2)) =>
+                type_less(f1, f2) && type_less(a1, a2)
+        
+            (Tup(xs1), Tup(xs2)) =>
+                all(zip(xs1, xs2)) do (lhs, rhs)
+                    type_less(lhs, rhs)
+                end
+        
+            (Record(a), Record(b)) =>
+                (begin
+                    (m1, ex1) = extract_row(a)
+                    (m2, ex2) = extract_row(b)
+                    common_keys =
+                        intersect(keys(m1), keys(m2))
+                    only_by_1 = [k => v for (k, v) in m1 if !(k in common_keys)]
+                    only_by_2 = [k => v for (k, v) in m2 if !(k in common_keys)]
+                    
+                    all(common_keys) do k
+                        type_less(m1[k], m2[k])
+                    end || return false
+                    
+                    function row_check(row1, row2, only_by_1, only_by_2)
+                        @match row1, row2 begin
+                            (nothing, nothing) => isempty(only_by_1) && isempty(only_by_2)
+                            (Some(_), nothing) => false
+                            (nothing, Some(row2)) => true
+                            (Some(row1), Some(row2)) => isempty(only_by_1) && isempty(only_by_2)
+                        end
+                    end
+                    row_check(ex1, ex2, only_by_1, only_by_2)
+                    
+                end)
+            _ => false
+        end)
+    end
+    
     function unify(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
             (Nom(a), Nom(b)) => a::Symbol === b::Symbol
@@ -91,14 +174,15 @@ function mk_tcstate(tctx::Vector{HMT})
                 N1 === N2 &&
                 (begin
                     pt = Pair{Symbol, HMT}
+                    genl = genvar_count[]
                     subst1 = mk_type_scope(pt[a => new_tvar() for a in ns1])
-                    subst2 = mk_type_scope(pt[a => Var(Genvar(a)) for a in ns2])
+                    subst2 = mk_type_scope(pt[a => Var(Genvar(genl, a)) for a in ns2])
                     unify(fresh(subst1, p1), fresh(subst2, p2)) &&
                     (let check_unique = Set{Symbol}()
                         all(subst1) do kv
                             @switch prune(kv.second) begin
-                            @case Var(Genvar(s))
-                                push!(check_unique, s)                    
+                            @case Var(Genvar(genl′, s)) && if genl′ === genl end
+                                push!(check_unique, s)
                                 return true
                             @case _
                                 return false
@@ -168,10 +252,11 @@ function mk_tcstate(tctx::Vector{HMT})
                 end)
             _ => false
         end)
-
     end
 
     (unify = unify,
+        type_less = type_less,
+        genvar_count = genvar_count,
         new_tvar = new_tvar,
         tvar_of_int = tvar_of_int,
         int_of_tvar = int_of_tvar,
@@ -179,4 +264,25 @@ function mk_tcstate(tctx::Vector{HMT})
         occur_in = occur_in,
         prune = prune,
         extract_row = extract_row)
+end
+
+function subst_tvar_visit(ctx::Function, root::HMT)
+    @match root begin
+        Var(Refvar(i)) => (ctx, ctx(i))
+        Var(Genvar(_, _)) => error("unexpected genvar outside its scope")
+        _ => (ctx, root)
+    end
+end
+
+(lhs::HMT) ⪯ (rhs::HMT)  = begin
+   small_tc = mk_tcstate(HMT[])
+   subst_table = Dict{UInt, HMT}
+   function subst(i::UInt)
+        get!(subst_table, i) do
+            small_tc.new_tvar()
+        end
+   end
+   lhs = previsit(subst_tvar_visit, subst, lhs)
+   rhs = previsit(subst_tvar_visit, subst, rhs)
+   small_tc.type_less(lhs, rhs)
 end

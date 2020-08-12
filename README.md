@@ -60,7 +60,7 @@ println(st.prune(tv3), "  ", st.prune(tv4))
 ```julia
 @data TVar begin
     Refvar(i::UInt)
-    Genvar(n::Symbol)
+    Genvar(g::UInt, n::Symbol)
 end
 
 @data RowT begin

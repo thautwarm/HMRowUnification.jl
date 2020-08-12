@@ -8,12 +8,12 @@ ImDict = Base.ImmutableDict
 abstract type TVar end
 @data TVar begin
     Refvar(i::UInt)
-    Genvar(n::Symbol)
+    Genvar(g::UInt, n::Symbol)
 end
 
 function Base.show(io::IO, x::TVar)
     @match x begin
-        Genvar(n) => print(io, '%', n)
+        Genvar(g, n) => print(io, "'$n($g)")
         Refvar(i) => print(io, '\'', i)
     end
 end
@@ -120,10 +120,10 @@ Base.show(io::IO, hmt::HMT) =
 
 TypeScope = ImDict{Symbol,HMT}
 
-function mk_type_scope(xs::AbstractVector{Pair{K, V}}) where {K, V}
-    ret = ImDict{K, V}()
+function mk_type_scope(xs::AbstractVector{Pair{Symbol, T}}) where {T <: HMT}
+    ret = TypeScope()
     for x in xs
-        ret = ImDict(ret, x)
+        ret = ImDict(ret, Pair{Symbol, HMT}(x.first, x.second))
     end
     ret
 end
@@ -190,7 +190,7 @@ struct IllFormedType <: Exception
 end
 
 struct UnboundTypeVar <: Exception
-    msg::String
+    scopedvar::Symbol
 end
 
 struct RowFieldMismatch <: Exception
