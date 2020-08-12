@@ -105,5 +105,9 @@ using Test
     @test collect(unbound(Tup((int_t,  Fresh(:a))))) == [:a]
     l = st.new_tvar()
     println(st.generalise(Dict(l.var.i => :a), l) == Forall((:a, ), Fresh(:a)))
+    x, y, a, b = [st.new_tvar() for i = 1:4]
+    @test st.unify(Arrow(Tup((x, y)), x), Arrow(a, b))
+    @test st.prune(x) == st.prune(b)
+    
 
 end

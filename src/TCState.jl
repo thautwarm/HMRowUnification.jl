@@ -22,10 +22,8 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
     end
     function fresh_visit(freshmap::TypeScope, a::HMT)
         @match a begin
-            Fresh(s) =>
-        (freshmap, get(freshmap, s, a))
-            Forall(ns, _) =>
-        (mk_type_scope(Pair{Symbol, HMT}[n => t for (n, t) in freshmap if !(n in ns)]), a)
+            Fresh(s) => (freshmap, get(freshmap, s, a))
+            Forall(ns, _) => (mk_type_scope(Pair{Symbol, HMT}[n => t for (n, t) in freshmap if !(n in ns)]), a)
             _ => (freshmap, a)
         end
     end
@@ -191,8 +189,6 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
                     end)
                 end)
             (Var(a), Var(b)) && if a == b end => true
-            (Var(_) && a, Var(Refvar(_)) && b) =>
-                unify(b, a)
             (Var(Refvar(i) && ai), b) =>
             if occur_in(ai, b)
                 throw(IllFormedType("a = a -> b"))
@@ -200,6 +196,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
                 tctx[i] = b
                 true
             end
+            (a, Var(Refvar(_)) && b) => unify(b, a)
             (Var(Genvar(_)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
 
