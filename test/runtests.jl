@@ -122,7 +122,7 @@ using Test
     @test level == 0
     st.type_less(Arrow(v, v), Forall((:a, ), Arrow(a, a)))
     println(st.genvar_links)
-    println(st.unlink(level))
+    st.unlink(level)
     println(st.genvar_links)
 
     t1 = Forall((:a, ), Record(
