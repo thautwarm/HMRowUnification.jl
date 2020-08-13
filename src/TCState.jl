@@ -323,7 +323,7 @@ end
 
 (lhs::HMT) ⪯ (rhs::HMT)  = begin
    small_tc = mk_tcstate(HMT[])
-   subst_table = Dict{UInt, HMT}
+   subst_table = Dict{UInt, HMT}()
    function subst(i::UInt)
         get!(subst_table, i) do
             small_tc.new_tvar()

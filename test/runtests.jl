@@ -135,9 +135,12 @@ using Test
         RowCons(:c, int_t,
         RowPoly(a)))))
 
-    t1 = st.instantiate(t1)
-    t2 = st.instantiate(t2)
-    @test st.unify(t1, t2)
-
+    t1_ = st.instantiate(t1)
+    t2_ = st.instantiate(t2)
+    @test st.unify(t1_, t2_)
+    t1_ = st.instantiate(t1)
+    t2_ = st.instantiate(t2)
+    @test (t1_ ⪯ t2_) == false
+    println(st.prune(t2_))
 end
 
