@@ -60,13 +60,18 @@ using Test
     #         end
     # end
 
-    
+
     t1 = Forall((:a, :b), App(Fresh(:b), Fresh(:a)))
     t2 = Forall((:b, :a), App(Fresh(:b), Fresh(:a)))
+    @test t1 ⪯ t2
+    @test t2 ⪯ t1
 
     @test st.unify(t1, t2)
 
     t3 = Forall((:b, :a), App(Fresh(:a), Fresh(:b)))
+    t3′ = Forall((:a, ), App(Fresh(:a), Fresh(:a)))
+    @test t3′ ⪯ t1
+    @test (t1 ⪯ t3′) == false
 
     @test st.unify(t1, t3)
 
@@ -81,7 +86,7 @@ using Test
     @test st.unify(Arrow(tv6, Tup((tv5, tv6))), arrow_t)
     @test st.prune(tv5) == st.prune(tv6) == int_t
     println(st.prune(arrow_t))
-    
+
     t4 = Forall((:b, :a), App(Fresh(:a), Fresh(:a)))
     @test !(st.unify(t1, t4))
 
@@ -92,9 +97,9 @@ using Test
     @test int_t ⪯ int_t
     @test Arrow(int_t, int_t) ⪯ Forall((:a, ), Arrow(Fresh(:a), Fresh(:a)))
     @test Arrow(
-            Forall((:a, ), 
+            Forall((:a, ),
                 Arrow(Fresh(:a), Fresh(:a))),
-            int_t) ⪯ 
+            int_t) ⪯
             Arrow(Arrow(int_t, int_t), int_t)
     tv = st.new_tvar()
     @test Tup((int_t, int_t)) ⪯ Forall((:a, ), Tup((Fresh(:a), Fresh(:a))))
@@ -110,7 +115,7 @@ using Test
     @test st.prune(x) == st.prune(b)
     println(st.genvar_links)
     st.unlink(0)
-    
+
     a = Fresh(:a)
     v = st.new_tvar()
     level = length(st.genvar_links)
@@ -119,6 +124,20 @@ using Test
     println(st.genvar_links)
     println(st.unlink(level))
     println(st.genvar_links)
-    
+
+    t1 = Forall((:a, ), Record(
+        RowCons(:a, int_t,
+        RowCons(:b, int_t,
+        RowPoly(a)))))
+
+    t2 = Forall((:a, ), Record(
+        RowCons(:a, int_t,
+        RowCons(:c, int_t,
+        RowPoly(a)))))
+
+    t1 = st.instantiate(t1)
+    t2 = st.instantiate(t2)
+    @test st.unify(t1, t2)
 
 end
+

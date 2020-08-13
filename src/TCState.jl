@@ -27,7 +27,7 @@ function mk_tcstate(tctx::Vector{HMT})
         push!(genvar_links, Set{UInt}())
         Var(genvar)
     end
-    
+
     function unlink(maxlevel :: Integer)
         while true
             level = length(genvars)
@@ -39,7 +39,7 @@ function mk_tcstate(tctx::Vector{HMT})
             for typevar_id in vars
                 tctx[typevar_id] = Var(Refvar(typevar_id))
             end
-            
+
         end
     end
 
@@ -84,7 +84,7 @@ function mk_tcstate(tctx::Vector{HMT})
                 _ => true
             end
             return !visit_check(visit_func, ty)
-        end  
+        end
     end
 
     function prune(x)
@@ -94,7 +94,7 @@ function mk_tcstate(tctx::Vector{HMT})
                 @match tctx[i] begin
                     Var(Refvar(i′)) &&
                     if i′ === i end => a
-                    
+
                     a =>
                     let t = prune(a)
                         tctx[i] = t
@@ -107,7 +107,7 @@ function mk_tcstate(tctx::Vector{HMT})
         previsit(vfunc, nothing, x)
     end
 
-    
+
     function type_less(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
             (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
@@ -116,7 +116,7 @@ function mk_tcstate(tctx::Vector{HMT})
                     pt = Pair{Symbol, HMT}
                     subst1 = mk_type_scope(pt[a => new_genvar(a) for a in ns1])
                     subst2 = mk_type_scope(pt[a => new_tvar() for a in ns2])
-                    
+
                     type_less(fresh(subst1, p1), fresh(subst2, p2))
                 end)
             (_, Forall(ns2, p2)) =>
@@ -133,24 +133,24 @@ function mk_tcstate(tctx::Vector{HMT})
             (a, (Var(_) && b)) => unify(b, a)
 
             (_, Fresh(s)) || (Fresh(s), _) => false
-        
+
             # A: (forall a. a -> a) -> [int]
             # B: (int -> int) -> [int]
             # A : B
             (Arrow(a1, r1), Arrow(a2, r2)) =>
                 type_less(a2, a1) && type_less(r1, r2)
-            
+
             # A: (forall a. a) int
             # B: list a
             # A : B
             (App(f1, a1), App(f2, a2)) =>
                 type_less(f1, f2) && type_less(a1, a2)
-        
+
             (Tup(xs1), Tup(xs2)) =>
                 all(zip(xs1, xs2)) do (lhs, rhs)
                     type_less(lhs, rhs)
                 end
-        
+
             (Record(a), Record(b)) =>
                 (begin
                     (m1, ex1) = extract_row(a)
@@ -159,11 +159,11 @@ function mk_tcstate(tctx::Vector{HMT})
                         intersect(keys(m1), keys(m2))
                     only_by_1 = [k => v for (k, v) in m1 if !(k in common_keys)]
                     only_by_2 = [k => v for (k, v) in m2 if !(k in common_keys)]
-                    
+
                     all(common_keys) do k
                         type_less(m1[k], m2[k])
                     end || return false
-                    
+
                     function row_check(row1, row2, only_by_1, only_by_2)
                         @match row1, row2 begin
                             (nothing, nothing) => isempty(only_by_1) && isempty(only_by_2)
@@ -173,12 +173,12 @@ function mk_tcstate(tctx::Vector{HMT})
                         end
                     end
                     row_check(ex1, ex2, only_by_1, only_by_2)
-                    
+
                 end)
             _ => false
         end)
     end
-    
+
     function unify(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
             (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
@@ -219,18 +219,18 @@ function mk_tcstate(tctx::Vector{HMT})
             (a, (Var(_) && b)) => unify(b, a)
 
             (_, Fresh(s)) || (Fresh(s), _) => false
-        
+
             (Arrow(a1, r1), Arrow(a2, r2)) =>
                 unify(a1, a2) && unify(r1, r2)
-        
+
             (App(f1, a1), App(f2, a2)) =>
                 unify(f1, f2) && unify(a1, a2)
-        
+
             (Tup(xs1), Tup(xs2)) =>
                 all(zip(xs1, xs2)) do (lhs, rhs)
                     unify(lhs, rhs)
                 end
-        
+
             (Record(a), Record(b)) =>
                 (begin
                     (m1, ex1) = extract_row(a)
@@ -239,7 +239,7 @@ function mk_tcstate(tctx::Vector{HMT})
                         intersect(keys(m1), keys(m2))
                     only_by_1 = [k => v for (k, v) in m1 if !(k in common_keys)]
                     only_by_2 = [k => v for (k, v) in m2 if !(k in common_keys)]
-                    
+
                     all(common_keys) do k
                         unify(m1[k], m2[k])
                     end &&
@@ -281,7 +281,7 @@ function mk_tcstate(tctx::Vector{HMT})
     function generalise(genmap::Dict{UInt, Symbol}, hmt::HMT)
         function visitor(@nospecialize(_), hmt::HMT)
             @match hmt begin
-                Var(Refvar(i)) => 
+                Var(Refvar(i)) =>
                     let x = get(genmap, i, nothing)
                         x === nothing && return hmt
                         nothing, Fresh(x)
@@ -289,7 +289,7 @@ function mk_tcstate(tctx::Vector{HMT})
                 _ => (nothing, hmt)
             end
         end
-        
+
         Forall(Tuple(values(genmap)), previsit(visitor, genmap, hmt))
     end
 
