@@ -16,10 +16,33 @@ function extract_row(rowt::RowT)
     extract_row_(TypeScope(), rowt)
 end
 
-function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=nothing)
-    if genvar_count === nothing
-        genvar_count = Ref{UInt}()
+function mk_tcstate(tctx::Vector{HMT})
+    genvars = Genvar[]
+    genvar_links = Set{UInt}[]
+
+    function new_genvar(s::Symbol)::Var
+        genlevel = length(genvars) + 1
+        genvar = Genvar(genlevel, s)
+        push!(genvars, genvar)
+        push!(genvar_links, Set{UInt}())
+        Var(genvar)
     end
+    
+    function unlink(maxlevel :: Integer)
+        while true
+            level = length(genvars)
+            if level <= maxlevel
+                break
+            end
+            pop!(genvars)
+            vars = pop!(genvar_links) :: Set{UInt}
+            for typevar_id in vars
+                tctx[typevar_id] = Var(Refvar(typevar_id))
+            end
+            
+        end
+    end
+
     function fresh_visit(freshmap::TypeScope, a::HMT)
         @match a begin
             Fresh(s) => (freshmap, get(freshmap, s, a))
@@ -91,9 +114,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
-                    genlevel = genvar_count[]
-                    genvar_count[] = genlevel + 1
-                    subst1 = mk_type_scope(pt[a => Var(Genvar(genlevel, a)) for a in ns1])
+                    subst1 = mk_type_scope(pt[a => new_genvar(a) for a in ns1])
                     subst2 = mk_type_scope(pt[a => new_tvar() for a in ns2])
                     
                     type_less(fresh(subst1, p1), fresh(subst2, p2))
@@ -107,13 +128,7 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
             (Var(a), Var(b)) && if a == b end => true
             (Var(_) && a, Var(Refvar(_)) && b) =>
                 unify(b, a)
-            (Var(Refvar(i) && ai), b) =>
-            if occur_in(ai, b)
-                throw(IllFormedType("a = a -> b"))
-            else
-                tctx[i] = b
-                true
-            end
+            (Var(Refvar(_)) && a, b) => unify(a, b)
             (Var(Genvar(_, _)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
 
@@ -171,15 +186,14 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
                 N1 === N2 &&
                 (begin
                     pt = Pair{Symbol, HMT}
-                    genl = genvar_count[]
                     subst1 = mk_type_scope(pt[a => new_tvar() for a in ns1])
-                    subst2 = mk_type_scope(pt[a => Var(Genvar(genl, a)) for a in ns2])
+                    subst2 = mk_type_scope(pt[a => new_genvar(a) for a in ns2])
                     unify(fresh(subst1, p1), fresh(subst2, p2)) &&
-                    (let check_unique = Set{Symbol}()
+                    (let check_unique = Set{Genvar}()
                         all(subst1) do kv
                             @switch prune(kv.second) begin
-                            @case Var(Genvar(genl′, s)) && if genl′ === genl end
-                                push!(check_unique, s)
+                            @case Var(a::Genvar)
+                                push!(check_unique, a)
                                 return true
                             @case _
                                 return false
@@ -193,10 +207,15 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
             if occur_in(ai, b)
                 throw(IllFormedType("a = a -> b"))
             else
+                @match b begin
+                    Genvar(genlevel, _) =>
+                        push!(genvar_links[genlevel], i)
+                    _ => nothing
+                end
                 tctx[i] = b
                 true
             end
-            (Var(Genvar(_)), _) => false
+            (Var(Genvar(_, _)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
 
             (_, Fresh(s)) || (Fresh(s), _) => false
@@ -252,7 +271,6 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
         @match hmt begin
             Forall(ns, t) => begin
                 pt = Pair{Symbol, HMT}
-                genl = genvar_count[]
                 subst = mk_type_scope(pt[a => new_tvar() for a in ns])
                 fresh(subst, t)
             end
@@ -282,8 +300,11 @@ function mk_tcstate(tctx::Vector{HMT}, genvar_count::Union{Nothing, Ref{UInt}}=n
         tctx = tctx,
         instantiate = instantiate,
         generalise = generalise,
-        genvar_count = genvar_count,
         new_tvar = new_tvar,
+        new_genvar = new_genvar,
+        genvar_links = genvar_links,
+        genvars = genvars,
+        unlink = unlink,
         tvar_of_int = tvar_of_int,
         int_of_tvar = int_of_tvar,
         fresh = fresh,

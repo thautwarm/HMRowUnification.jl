@@ -108,6 +108,17 @@ using Test
     x, y, a, b = [st.new_tvar() for i = 1:4]
     @test st.unify(Arrow(Tup((x, y)), x), Arrow(a, b))
     @test st.prune(x) == st.prune(b)
+    println(st.genvar_links)
+    st.unlink(0)
+    
+    a = Fresh(:a)
+    v = st.new_tvar()
+    level = length(st.genvar_links)
+    @test level == 0
+    st.type_less(Arrow(v, v), Forall((:a, ), Arrow(a, a)))
+    println(st.genvar_links)
+    println(st.unlink(level))
+    println(st.genvar_links)
     
 
 end
