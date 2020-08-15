@@ -16,10 +16,10 @@ function extract_row(rowt::RowT)
     extract_row_(TypeScope(), rowt)
 end
 
-function mk_tcstate(tctx::Vector{HMT})
+function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=nothing)
     genvars = Genvar[]
     genvar_links = Set{UInt}[]
-
+    
     function new_genvar(s::Symbol)::Var
         genlevel = length(genvars) + 1
         genvar = Genvar(genlevel, s)
@@ -58,7 +58,10 @@ function mk_tcstate(tctx::Vector{HMT})
         Var(Refvar(i))
     end
     function new_tvar()::HMT
-        vid = length(tctx) + 1
+        vid = UInt(length(tctx) + 1)
+        if new_tvar_hook !== nothing
+            new_tvar_hook(vid)
+        end
         tvar = tvar_of_int(vid)
         push!(tctx, tvar)
         tvar

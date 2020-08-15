@@ -10,7 +10,8 @@ using Test
 
     tctx = HMT[]
 
-    st = mk_tcstate(tctx);
+    vids = UInt[]
+    st = mk_tcstate(tctx, x -> push!(vids, x))
 
     tvar1 = st.new_tvar()
     tvar2 = st.new_tvar()
@@ -142,5 +143,6 @@ using Test
     t2_ = st.instantiate(t2)
     @test (t1_ ⪯ t2_) == false
     println(st.prune(t2_))
+    println(vids)
 end
 
