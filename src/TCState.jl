@@ -36,10 +36,12 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
             end
             pop!(genvars)
             vars = pop!(genvar_links) :: Set{UInt}
-            for typevar_id in vars
-                tctx[typevar_id] = Var(Refvar(typevar_id))
+            if !isempty(vars)
+                modulo = Var(Refvar(first(vars)))
+                for typevar_id in vars
+                    tctx[typevar_id] = modulo
+                end
             end
-
         end
     end
 
