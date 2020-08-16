@@ -144,5 +144,10 @@ using Test
     @test (t1_ ⪯ t2_) == false
     println(st.prune(t2_))
     println(vids)
+
+    a = Fresh(:a)
+    s = Forall((:a, ), Arrow(a, a))
+    @test Arrow(s, s) ⪯ s
+    @test !(s ⪯ Arrow(s, s))
 end
 

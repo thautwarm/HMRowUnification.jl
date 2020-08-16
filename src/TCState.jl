@@ -36,12 +36,10 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
             end
             pop!(genvars)
             vars = pop!(genvar_links) :: Set{UInt}
-            if !isempty(vars)
-                modulo = Var(Refvar(first(vars)))
-                for typevar_id in vars
-                    tctx[typevar_id] = modulo
-                end
+            for typevar_id in vars
+                tctx[typevar_id] = Var(Refvar(typevar_id))
             end
+
         end
     end
 
@@ -116,6 +114,14 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
     function type_less(lhs::HMT, rhs::HMT)
         (@match prune(lhs), prune(rhs) begin
             (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
+
+            (Var(a), Var(b)) && if a == b end => true
+            (Var(_) && a, Var(Refvar(_)) && b) =>
+                unify(b, a)
+            (Var(Refvar(_)) && a, b) => unify(a, b)
+            (Var(Genvar(_, _)), _) => false
+            (a, (Var(_) && b)) => unify(b, a)
+
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
@@ -130,13 +136,7 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
                     subst = mk_type_scope(pt[a => new_tvar() for a in ns2])
                     type_less(lhs, fresh(subst, p2))
                 end)
-            (Var(a), Var(b)) && if a == b end => true
-            (Var(_) && a, Var(Refvar(_)) && b) =>
-                unify(b, a)
-            (Var(Refvar(_)) && a, b) => unify(a, b)
-            (Var(Genvar(_, _)), _) => false
-            (a, (Var(_) && b)) => unify(b, a)
-
+            
             (_, Fresh(s)) || (Fresh(s), _) => false
 
             # A: (forall a. a -> a) -> [int]
