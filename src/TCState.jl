@@ -112,16 +112,13 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
 
 
     function type_less(lhs::HMT, rhs::HMT)
-        (@match prune(lhs), prune(rhs) begin
-            (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
+        lhs = prune(lhs)
+        rhs = prune(rhs)
+        lhs === rhs && return true
 
-            (Var(a), Var(b)) && if a == b end => true
-            (Var(_) && a, Var(Refvar(_)) && b) =>
-                unify(b, a)
-            (Var(Refvar(_)) && a, b) => unify(a, b)
-            (Var(Genvar(_, _)), _) => false
-            (a, (Var(_) && b)) => unify(b, a)
-
+        (@match lhs, rhs begin
+            (_, Var(_) || Nom(_) || Fresh(_)) => unify(rhs, lhs)
+            
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
@@ -130,15 +127,16 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
 
                     type_less(fresh(subst1, p1), fresh(subst2, p2))
                 end)
+            (Var(_), _) => unify(lhs, rhs)
             (_, Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
                     subst = mk_type_scope(pt[a => new_tvar() for a in ns2])
                     type_less(lhs, fresh(subst, p2))
                 end)
-            
-            (_, Fresh(s)) || (Fresh(s), _) => false
+            (Nom(_) || Fresh(_), _) => unify(lhs, rhs)
 
+                
             # A: (forall a. a -> a) -> [int]
             # B: (int -> int) -> [int]
             # A : B
@@ -185,8 +183,11 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
     end
 
     function unify(lhs::HMT, rhs::HMT)
-        (@match prune(lhs), prune(rhs) begin
-            (Nom(a), Nom(b)) || (Fresh(a), Fresh(b)) => a::Symbol === b::Symbol
+        lhs = prune(lhs)
+        rhs = prune(rhs)
+        lhs === rhs && return true
+
+        (@match lhs, rhs begin
             (Forall{N1}(ns1, p1) where N1, Forall{N2}(ns2, p2) where N2) =>
                 N1 === N2 &&
                 (begin
@@ -207,7 +208,6 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
                         length(check_unique) == N1
                     end)
                 end)
-            (Var(a), Var(b)) && if a == b end => true
             (Var(Refvar(i) && ai), b) =>
             if occur_in(ai, b)
                 throw(IllFormedType("a = a -> b"))
@@ -222,8 +222,6 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
             end
             (Var(Genvar(_, _)), _) => false
             (a, (Var(_) && b)) => unify(b, a)
-
-            (_, Fresh(s)) || (Fresh(s), _) => false
 
             (Arrow(a1, r1), Arrow(a2, r2)) =>
                 unify(a1, a2) && unify(r1, r2)
