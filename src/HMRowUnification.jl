@@ -6,7 +6,7 @@ export Var, Nom, Fresh, Var, Arrow, App, Tup, Forall, Record
 export row_of_pairs, extract_row, ftv, ⪯, unbound
 
 using MLStyle
-
+@nospecialize
 include("Core.jl")
 include("TCState.jl")
 

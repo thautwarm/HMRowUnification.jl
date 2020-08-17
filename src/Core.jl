@@ -1,5 +1,5 @@
 const Optional{T} = Union{Some{T},Nothing}
-
+@nospecialize
 abstract type RowT end
 abstract type HMT end
 

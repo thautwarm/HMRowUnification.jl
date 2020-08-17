@@ -1,3 +1,4 @@
+@nospecialize
 function extract_row(rowt::RowT)
     function extract_row_(fields::TypeScope, rowt::RowT)
         @match rowt begin
@@ -16,10 +17,20 @@ function extract_row(rowt::RowT)
     extract_row_(TypeScope(), rowt)
 end
 
+function subst(freshmap::Dict{A, B}, root::HMT) where {A<:HMT, B<:HMT}
+    previsit(nothing, root) do ::Nothing, root::HMT
+        if root isa A
+            nothing, get(freshmap, root, root)
+        else
+            nothing, root
+        end
+    end
+end
+
 function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=nothing)
     genvars = Genvar[]
     genvar_links = Set{UInt}[]
-    
+
     function new_genvar(s::Symbol)::Var
         genlevel = length(genvars) + 1
         genvar = Genvar(genlevel, s)
@@ -40,6 +51,22 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
                 tctx[typevar_id] = Var(Refvar(typevar_id))
             end
 
+        end
+    end
+
+    function unlink(f::Function, maxlevel :: Integer)
+        while true
+            level = length(genvars)
+            if level <= maxlevel
+                break
+            end
+            gen = pop!(genvars)
+            vars = pop!(genvar_links) :: Set{UInt}
+            for typevar_id in vars
+                v = Var(Refvar(typevar_id))
+                tctx[typevar_id] = v
+                f(Var(gen), v)
+            end
         end
     end
 
@@ -118,7 +145,7 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
 
         (@match lhs, rhs begin
             (_, Var(_) || Nom(_) || Fresh(_)) => unify(rhs, lhs)
-            
+
             (Forall(ns1, p1), Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
@@ -131,12 +158,12 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
             (_, Forall(ns2, p2)) =>
                 (begin
                     pt = Pair{Symbol, HMT}
-                    subst = mk_type_scope(pt[a => new_tvar() for a in ns2])
-                    type_less(lhs, fresh(subst, p2))
+                    subst_v = mk_type_scope(pt[a => new_tvar() for a in ns2])
+                    type_less(lhs, fresh(subst_v, p2))
                 end)
             (Nom(_) || Fresh(_), _) => unify(lhs, rhs)
 
-                
+
             # A: (forall a. a -> a) -> [int]
             # B: (int -> int) -> [int]
             # A : B
@@ -193,20 +220,30 @@ function mk_tcstate(tctx::Vector{HMT}, new_tvar_hook::Union{Nothing, Function}=n
                 (begin
                     pt = Pair{Symbol, HMT}
                     subst1 = mk_type_scope(pt[a => new_tvar() for a in ns1])
+                    genlevel = length(genvar_links)
                     subst2 = mk_type_scope(pt[a => new_genvar(a) for a in ns2])
-                    unify(fresh(subst1, p1), fresh(subst2, p2)) &&
-                    (let check_unique = Set{Genvar}()
-                        all(subst1) do kv
-                            @switch prune(kv.second) begin
-                            @case Var(a::Genvar)
-                                push!(check_unique, a)
-                                return true
-                            @case _
-                                return false
-                            end
-                        end &&
-                        length(check_unique) == N1
-                    end)
+                    generic = fresh(subst2, p2)
+                    unify(fresh(subst1, p1), generic) || return false
+
+                    generic = prune(generic)
+                    remap2 = Dict{Var, Fresh}(v => Fresh(k) for (k, v) in subst2)
+                    remap1 = Dict{Var, Fresh}()
+                    for (k, v) in subst1
+                        v = prune(v)
+                        haskey(remap2, v) || return false
+                        haskey(remap1, v) && return false
+                        remap1[v] = Fresh(k)
+                    end
+                    backmap1 = Dict{Var, Fresh}()
+                    backmap2 = Dict{Var, Fresh}()
+
+                    unlink(genlevel) do v::Var, i::Var
+                        backmap1[i] = remap1[v]
+                        backmap2[i] = remap2[v]
+                    end
+
+                    unify(subst(backmap2, p2), p2) &&
+                    unify(subst(backmap1, p1), p1)
                 end)
             (Var(Refvar(i) && ai), b) =>
             if occur_in(ai, b)
